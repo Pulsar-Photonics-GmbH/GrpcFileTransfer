@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Pulsar.GrpcFileTransfer</RootNamespace>
+        <AssemblyName>Pulsar.GrpcFileTransfer</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Protobuf Include="FileTransferService.proto" GrpcServices="Both" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Grpc.AspNetCore" Version="2.50.0" />
+    </ItemGroup>
+</Project>

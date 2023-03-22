@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrpcFileTransfer", "GrpcFileTransfer\GrpcFileTransfer.csproj", "{C83A944D-FDF0-4942-A523-2B25419281A8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrpcFileTransfer.Test", "GrpcFileTransfer.Test\GrpcFileTransfer.Test.csproj", "{2948FBE1-760C-4F89-9A75-DF77678621D9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C83A944D-FDF0-4942-A523-2B25419281A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C83A944D-FDF0-4942-A523-2B25419281A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C83A944D-FDF0-4942-A523-2B25419281A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C83A944D-FDF0-4942-A523-2B25419281A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2948FBE1-760C-4F89-9A75-DF77678621D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2948FBE1-760C-4F89-9A75-DF77678621D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2948FBE1-760C-4F89-9A75-DF77678621D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2948FBE1-760C-4F89-9A75-DF77678621D9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+	EndGlobalSection
+EndGlobal

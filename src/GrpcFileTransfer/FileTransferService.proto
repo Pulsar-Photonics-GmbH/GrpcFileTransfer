@@ -1,0 +1,50 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "Pulsar.GrpcFileTransfer.ServiceInterface";
+import "google/protobuf/empty.proto";
+
+package file_transfer;
+
+service FileTransfer {
+  rpc Upload(stream FileUploadRequest) returns(FileUploadResponse);
+  rpc Download(FileDownloadRequest) returns(stream FileDownloadResponse);
+  rpc GetInfo (google.protobuf.Empty) returns (ServiceInformation);
+}
+
+message ServiceInformation
+{
+  string name = 1;
+  string description = 2;
+  string version = 3;
+}
+
+message FileChunk {
+  bytes content = 1;
+  bool is_last = 2;
+  int64 id = 3;
+}
+
+message FileUploadRequest {
+  oneof request {
+    string file_id = 1;
+    FileChunk file_chunk = 2;
+    bool get_md5_hash = 3;
+  }
+}
+
+message FileUploadResponse {
+  // empty unless hash verification is requested
+  string md5_hash = 2;
+}
+
+message FileDownloadRequest {
+  string fileID = 1;
+  bool get_md5_hash = 3;
+}
+
+message FileDownloadResponse {
+  oneof response {
+    FileChunk file_chunk = 2;
+    string md5_hash = 3;
+  }
+}
