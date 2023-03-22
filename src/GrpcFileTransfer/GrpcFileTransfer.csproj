@@ -8,6 +8,20 @@
         <AssemblyName>Pulsar.GrpcFileTransfer</AssemblyName>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <PackageId>Pulsar.GrpcFileTransfer</PackageId>
+        <Description>
+        This package contians a service and client implementation to transfer files between a client and a server using gRPC.
+        For more information see https://github.com/Pulsar-Photonics/GrpcFileTransfer
+        </Description>
+        <Authors>Pulsar Photonics GmbH</Authors>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <Title>gRPC File Transfer</Title>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/Pulsar-Photonics/GrpcFileTransfer</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Pulsar-Photonics/GrpcFileTransfer</PackageProjectUrl>
+    </PropertyGroup>
+
     <ItemGroup>
         <Protobuf Include="FileTransferService.proto" GrpcServices="Both" />
     </ItemGroup>

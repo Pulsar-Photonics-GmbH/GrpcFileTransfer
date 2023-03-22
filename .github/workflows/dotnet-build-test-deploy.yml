@@ -47,12 +47,15 @@ jobs:
       run: |
         run: dotnet build --configuration Release
                         
-    - name: Nuget Deploy
+    - name: Pack nuget
       run: |
         $env:RELEASE_VERSION=($env:GITHUB_REF).split("tags/v")[-1]
         echo $env:RELEASE_VERSION
         echo $env:GITHUB_SHA
         mkdir nupkg
         dotnet pack -p:PackageVersion=$env:RELEASE_VERSION -o  $PWD\nupkg -p:RepositoryCommit=$env:GITHUB_SHA --configuration Release -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+    
+    - name: Publish nuget
+      run: |
         cd nupkg
-        dotnet nuget push "**/*.nupkg" --api-key ${{secrets.NUGET_DEPLOY_KEY}} --source "https://api.nuget.org/v3/index.json" --no-symbols false --skip-duplicate
+        dotnet nuget push "**/*.nupkg" --api-key ${{secrets.NUGET_DEPLOY_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
