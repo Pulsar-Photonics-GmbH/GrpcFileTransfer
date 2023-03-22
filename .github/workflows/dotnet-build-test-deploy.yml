@@ -8,6 +8,9 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
+    defaults:
+      run:
+        working-directory: ./src
     steps:
     - uses: actions/checkout@v3
     - name: Setup .NET
@@ -16,7 +19,6 @@ jobs:
         dotnet-version: 7.0.x
     
     - name: Change into source foulder
-      run: cd src/
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
@@ -29,6 +31,9 @@ jobs:
     needs: [build_and_test]
     if: startsWith(github.ref, 'refs/tags/v') # make sure deploy only runs on tags with version number
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./src
         
     steps:
     - name: Checkout repo
