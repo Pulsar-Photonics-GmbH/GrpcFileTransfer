@@ -18,7 +18,6 @@ jobs:
       with:
         dotnet-version: 7.0.x
     
-    - name: Change into source foulder
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
@@ -43,10 +42,7 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 7.0.x
-        
-    - name: Change into source foulder
-      run: cd src/
-                  
+                          
     - name: Build 
       run: |
         run: dotnet build --configuration Release
