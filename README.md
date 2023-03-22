@@ -1,9 +1,11 @@
+[![BuildTest](https://github.com/Pulsar-Photonics/GrpcFileTransfer/actions/workflows/dotnet-build-test-deploy.yml/badge.svg?branch=main)](https://github.com/Pulsar-Photonics/GrpcFileTransfer/actions/workflows/dotnet-build-test-deploy.yml?query=branch%3Amain)
+[![nuget](https://img.shields.io/nuget/v/Pulsar.GrpcFileTransfer.svg?label=nuget)](https://www.nuget.org/packages/Pulsar.GrpcFileTransfer)
 # File transfer via gRPC in .NET
 GrpcFileTransfer is a .NET library to transfer files between machines using protobuf & gRPC.
 
 ## Getting started
 To use this library, follow this three main steps:
-- Install in your project via nuget: 
+- Install in your project from nuget [![nuget](https://img.shields.io/nuget/v/Pulsar.GrpcFileTransfer.svg?label=nuget)](https://www.nuget.org/packages/Pulsar.GrpcFileTransfer)
 - Implement the server side service using the abstract [`AbstractFileTransferService`](src/GrpcFileTransfer/Service/AbstractFileTransferService.cs) class
 - Register the service
 - Use the [`FileTransferClient`](src/GrpcFileTransfer/Client/FileTransferClient.cs) to up- & download files
