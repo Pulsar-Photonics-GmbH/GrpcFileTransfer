@@ -1,4 +1,5 @@
-﻿using Google.Protobuf;
+﻿using System.IO.Compression;
+using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
@@ -40,7 +41,7 @@ public class FileTransferClient
         var response = _grpcClient.Download(new FileDownloadRequest
             {
                 GetMd5Hash = hashVerification,
-                FileID = fileId
+                FileId = fileId
             },
             headers);
 
@@ -124,6 +125,7 @@ public class FileTransferClient
         if (headerFields != null)
             foreach (var headerField in headerFields)
                 headers.Add(headerField);
+        headers.Add("grpc-internal-encoding-request", "gzip");
 
         _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 

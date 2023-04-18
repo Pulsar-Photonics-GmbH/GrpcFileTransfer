@@ -38,7 +38,7 @@ message FileUploadResponse {
 }
 
 message FileDownloadRequest {
-  string fileID = 1;
+  string file_id = 1;
   bool get_md5_hash = 3;
 }
 

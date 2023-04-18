@@ -11,7 +11,6 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
 {
     protected AbstractFileTransferService()
     {
-
     }
 
     protected AbstractFileTransferService(ILogger logger)
@@ -48,13 +47,14 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
         {
             _logger?.LogTrace($"Starting upload");
 
-            if (!ValidateHeaders(context.RequestHeaders, out string authorizationMessage))
-                throw new RpcException(new Status(StatusCode.Unauthenticated, $"Authorization failed with message: {authorizationMessage}"));
+            var validationResult = await ValidateHeaders(context.RequestHeaders).ConfigureAwait(false);
+            if (!validationResult.ValidationSuccessful)
+                throw new RpcException(new Status(StatusCode.Unauthenticated, $"Authorization failed with message: {validationResult.Message}"));
             string? md5hash = null;
             FileStream? fileStream = null;
             bool uploadSuccess = false;
             string filepath = string.Empty;
-            string fileID = string.Empty;
+            string fileId = string.Empty;
             try
             {
                 FileUploadRequest.RequestOneofCase lastRequestCase;
@@ -62,13 +62,15 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
                 {
                     if (requestStream.Current.RequestCase != FileUploadRequest.RequestOneofCase.FileId)
                         throw new RpcException(new Status(StatusCode.InvalidArgument, $"First request in stream must be {nameof(FileUploadRequest.RequestOneofCase.FileId)}"));
-                    fileID = requestStream.Current.FileId;
+                    fileId = requestStream.Current.FileId;
 
-                    if (fileID.Trim() == string.Empty)
+                    if (fileId.Trim() == string.Empty)
                         throw new RpcException(new Status(StatusCode.InvalidArgument, $"{FileUploadRequest.RequestOneofCase.FileId} must not be empty;"));
 
-                    if (!PreUploadHook(fileID, out filepath, out string preHookMessage))
-                        throw new RpcException(new Status(StatusCode.FailedPrecondition, $"{nameof(PreUploadHook)} failed with message:\n{preHookMessage}"));
+                    var preUploadResult = await PreUploadHook(fileId).ConfigureAwait(false);
+                    if (!preUploadResult.DoAction)
+                        throw new RpcException(new Status(StatusCode.FailedPrecondition, $"{nameof(PreUploadHook)} failed with message:\n{preUploadResult.Message}"));
+                    filepath = preUploadResult.FilePath;
 
                     var directoryInfo = new FileInfo(filepath).Directory;
                     if (directoryInfo != null)
@@ -136,16 +138,21 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
                 if (fileStream != null)
                     await fileStream.DisposeAsync().ConfigureAwait(false);
 
-                uploadSuccess = PostUploadHook(fileID, uploadSuccess, out string postHookMessage);
+                var successBefore = uploadSuccess;
+                var postHookResult = await PostUploadHook(fileId, uploadSuccess).ConfigureAwait(false);
 
+                uploadSuccess = postHookResult.ActionSuccessful;
                 if (!uploadSuccess)
                 {
                     if (File.Exists(filepath))
                         File.Delete(filepath);
-                    var message = "Upload failed!";
-                    if (postHookMessage.Trim() != string.Empty)
-                        message += $"\n{nameof(PostUploadHook)} failed with message:\n{postHookMessage}";
-                    throw new RpcException(new Status(StatusCode.Aborted, message));
+                    if (successBefore)
+                    {
+                        var message = "Upload failed!";
+                        if (postHookResult.Message.Trim() != string.Empty)
+                            message += $"\n{nameof(PostUploadHook)} failed with message:\n{postHookResult.Message}";
+                        throw new RpcException(new Status(StatusCode.Aborted, message));
+                    }
                 }
             }
 
@@ -162,86 +169,93 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
 
     /// <summary>
     /// Perform server-side actions before a upload is started.
-    /// Can be used e.g. to match the <see cref="fileID"/> to a filepath using a database.
-    /// Default behavior: sets empty message and returns <see cref="fileID"/> as <see cref="filePath"/>
+    /// Can be used e.g. to match the <see cref="fileId"/> to a filepath using a database.
+    /// Default behavior: sets <see cref="PreHookResponse.FilePath"/> = <see cref="fileId"/> and continues the upload.
     /// </summary>
-    /// <param name="fileID">Identifier for the file to be uploaded</param>
-    /// <param name="filePath">Target path of the file to be uploaded on the server</param>
-    /// /// <param name="message">If false is returned, an <see cref="RpcException"/> will be transmitted to the client containing this message.</param>
-    /// <returns>True if upload is allowed, false if it is not</returns>
-    protected virtual bool PreUploadHook(string fileID, out string filePath, out string message)
+    /// <param name="fileId">Identifier for the file to be uploaded</param>
+    /// <returns></returns>
+    protected virtual Task<PreHookResponse> PreUploadHook(string fileId)
     {
-        filePath = fileID;
-        message = string.Empty;
-        return true;
+        _logger?.LogTrace("Using default pre upload hook");
+        return Task.FromResult(new PreHookResponse(true, fileId, string.Empty));
     }
+
 
     /// <summary>
     /// Perform server-side actions after the upload is finished / has failed.
     /// Can be used for e.g. for cleanup tasks.
     /// Default behavior: sets empty message and returns <see cref="uploadSuccessful"/>
     /// </summary>
-    /// <param name="fileID">fileID that was uploaded</param>
-    /// <param name="message">If false is returned, an <see cref="RpcException"/> will be transmitted to the client containing this message.</param>
+    /// <param name="fileId">fileId that was uploaded</param>
     /// <param name="uploadSuccessful">If the upload operation was successful</param>
-    /// <returns>Return false if upload should be handled as failed.</returns>
-    protected virtual bool PostUploadHook(string fileID, bool uploadSuccessful, out string message)
+    /// <returns></returns>
+    protected virtual Task<PostHookResponse> PostUploadHook(string fileId, bool uploadSuccessful)
     {
-        message = string.Empty;
-        return uploadSuccessful;
+        _logger?.LogTrace("Using default post upload hook");
+        return Task.FromResult(new PostHookResponse(uploadSuccessful, string.Empty));
     }
 
     public sealed override async Task Download(FileDownloadRequest request, IServerStreamWriter<FileDownloadResponse> responseStream, ServerCallContext context)
     {
         try
         {
-            if (!ValidateHeaders(context.RequestHeaders, out string authorizationMessage))
-                throw new RpcException(new Status(StatusCode.Unauthenticated, $"Authorization failed with message: {authorizationMessage}"));
-
-            if (!PreDownloadHook(request.FileID, out string filepath, out string preHookMessage))
-                throw new RpcException(new Status(StatusCode.FailedPrecondition, $"{nameof(PreDownloadHook)} failed with message:\n{preHookMessage}"));
-
-            if (!File.Exists(filepath))
-                throw new RpcException(new Status(StatusCode.InvalidArgument, $"File {filepath} does not exist."));
-
-            if (request.GetMd5Hash)
-                await responseStream.WriteAsync(new FileDownloadResponse { Md5Hash = Utils.CalculateMD5(filepath) }).ConfigureAwait(false);
-
-            await using var fileStream = File.OpenRead(filepath);
-
-            int chunkSizeBytes = Utils.ChunkSize;
-            byte[] buffer = new byte[Utils.ChunkSize];
-
-            var chunk = new FileChunk();
             bool downloadSuccess = false;
-
-            for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+            try
             {
-                if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+                var validationResult = await ValidateHeaders(context.RequestHeaders).ConfigureAwait(false);
+                if (!validationResult.ValidationSuccessful)
+                    throw new RpcException(new Status(StatusCode.Unauthenticated, $"Authorization failed with message: {validationResult.Message}"));
+
+                var preHookResult = await PreDownloadHook(request.FileId).ConfigureAwait(false);
+                if (!preHookResult.DoAction)
+                    throw new RpcException(new Status(StatusCode.FailedPrecondition, $"{nameof(PreDownloadHook)} failed with message:\n{preHookResult.Message}"));
+
+                var filepath = preHookResult.FilePath;
+                if (!File.Exists(filepath))
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, $"File {filepath} does not exist."));
+
+                if (request.GetMd5Hash)
+                    await responseStream.WriteAsync(new FileDownloadResponse { Md5Hash = Utils.CalculateMD5(filepath) }).ConfigureAwait(false);
+
+                await using var fileStream = File.OpenRead(filepath);
+
+                int chunkSizeBytes = Utils.ChunkSize;
+                byte[] buffer = new byte[Utils.ChunkSize];
+
+                var chunk = new FileChunk();
+
+                for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
                 {
-                    chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
-                    buffer = new byte[chunkSizeBytes];
-                    chunk.IsLast = true;
+                    if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+                    {
+                        chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
+                        buffer = new byte[chunkSizeBytes];
+                        chunk.IsLast = true;
+                    }
+
+                    await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes).ConfigureAwait(false);
+
+                    chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
+                    chunk.Id++;
+
+                    await responseStream.WriteAsync(new FileDownloadResponse { FileChunk = chunk }).ConfigureAwait(false);
+                    if (chunk.IsLast)
+                        downloadSuccess = true;
                 }
-
-                await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes).ConfigureAwait(false);
-
-                chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
-                chunk.Id++;
-
-                await responseStream.WriteAsync(new FileDownloadResponse { FileChunk = chunk }).ConfigureAwait(false);
-                if (chunk.IsLast)
-                    downloadSuccess = true;
             }
-
-            downloadSuccess = PostDownloadHook(request.FileID, downloadSuccess, out string postHookMessage);
-
-            if (!downloadSuccess)
+            finally
             {
-                var message = "Download failed!";
-                if (postHookMessage.Trim() != string.Empty)
-                    message += $"\n{nameof(PostDownloadHook)} failed with message:\n{postHookMessage}";
-                throw new RpcException(new Status(StatusCode.Aborted, message));
+                var successBefore = downloadSuccess;
+                var postHookResult = await PostDownloadHook(request.FileId, downloadSuccess).ConfigureAwait(false);
+                downloadSuccess = postHookResult.ActionSuccessful;
+
+                if (successBefore && !downloadSuccess)
+                {
+                    var message = "Download failed!";
+                    if (postHookResult.Message.Trim() != string.Empty)
+                        message += $"\n{nameof(PostDownloadHook)} failed with message:\n{postHookResult.Message}";
+                    throw new RpcException(new Status(StatusCode.Aborted, message));
+                }
             }
         }
         catch (Exception ex)
@@ -254,18 +268,15 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
 
     /// <summary>
     /// Perform server-side actions before a download is started.
-    /// Can be used e.g. to match the <see cref="fileID"/> to a filepath using a database.
-    /// Default behavior: sets empty message and returns <see cref="fileID"/> as <see cref="filePath"/>
+    /// Can be used e.g. to match the <see cref="fileId"/> to a filepath using a database.
+    /// Default behavior: sets <see cref="PreHookResponse.FilePath"/> = <see cref="fileId"/> and continues the download.
     /// </summary>
-    /// <param name="fileID">Identifier for the file to be downloaded</param>
-    /// <param name="filePath">Path of the file to download</param>
-    /// <param name="message">If false is returned, an <see cref="RpcException"/> will be transmitted to the client containing this message.</param>
-    /// <returns>True if upload is allowed, false if it is not</returns>
-    protected virtual bool PreDownloadHook(string fileID, out string filePath, out string message)
+    /// <param name="fileId">Identifier for the file to be downloaded</param>
+    /// <returns></returns>
+    protected virtual Task<PreHookResponse> PreDownloadHook(string fileId)
     {
-        filePath = fileID;
-        message = string.Empty;
-        return true;
+        _logger?.LogTrace("Using default pre download hook");
+        return Task.FromResult(new PreHookResponse(true, fileId, string.Empty));
     }
 
     /// <summary>
@@ -273,28 +284,48 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
     /// Can be used for e.g. for cleanup tasks.
     /// Default behavior: sets empty message and returns <see cref="downloadSuccessful"/>
     /// </summary>
-    /// <param name="fileID">fileID that was downloaded</param>
-    /// <param name="message">If false is returned, an <see cref="RpcException"/> will be transmitted to the client containing this message.</param>
+    /// <param name="fileId">Identifier for the file that was downloaded</param>
     /// <param name="downloadSuccessful">If the download operation was successful</param>
-    /// <returns>Return false if download should be handled as failed.</returns>
-    protected virtual bool PostDownloadHook(string fileID, bool downloadSuccessful, out string message)
+    /// <returns></returns>
+    protected virtual Task<PostHookResponse> PostDownloadHook(string fileId, bool downloadSuccessful)
     {
-        message = string.Empty;
-        return downloadSuccessful;
+        _logger?.LogTrace("Using default post download hook");
+        return Task.FromResult(new PostHookResponse(downloadSuccessful, string.Empty));
     }
 
     /// <summary>
     /// Called before every up- or download. Can be used for custom header validation.
-    /// Default behavior: return true without any validation.
+    /// Default behavior: return success without any validation.
     /// </summary>
     /// <param name="headers">Headers provided by the client.</param>
-    /// <param name="message">If false is returned, the content of <see cref="message"/> will be transmitted in a <see cref="RpcException"/> to the client.</param>
     /// <returns></returns>
-    protected virtual bool ValidateHeaders(Metadata headers, out string message)
+    protected virtual Task<ValidationResult> ValidateHeaders(Metadata headers)
     {
-        message = string.Empty;
-        return true;
+        _logger?.LogTrace("Using default header validation");
+        return Task.FromResult(new ValidationResult(true, string.Empty));
     }
 
     protected readonly ILogger? _logger;
 }
+
+/// <summary>
+///
+/// </summary>
+/// <param name="DoAction">If the up / download action should be carried out.</param>
+/// <param name="FilePath">Path of the file to up / download on the server.</param>
+/// <param name="Message">If false is returned, the content of <see cref="Message"/> will be transmitted in a <see cref="RpcException"/> to the client.</param>
+public record PreHookResponse(bool DoAction, string FilePath, string Message);
+
+/// <summary>
+///
+/// </summary>
+/// <param name="ActionSuccessful">If up / download action was successful</param>
+/// <param name="Message">If false is returned, the content of <see cref="Message"/> will be transmitted in a <see cref="RpcException"/> to the client.</param>
+public record PostHookResponse(bool ActionSuccessful, string Message);
+
+/// <summary>
+///
+/// </summary>
+/// <param name="ValidationSuccessful">If the validation was successful</param>
+/// <param name="Message">If false is returned, the content of <see cref="Message"/> will be transmitted in a <see cref="RpcException"/> to the client.</param>
+public record ValidationResult(bool ValidationSuccessful, string Message);

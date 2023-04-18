@@ -64,7 +64,7 @@ public class Startup
 }
 ```
 
-For more information, see the corresponding Microsoft help page: https://learn.microsoft.com/en-us/aspnet/core/grpc/aspnetcore?view=aspnetcore-7.0#configure-grpc
+For more information, see the corresponding Microsoft help page: https://learn.microsoft.com/en-us/aspnet/core/grpc/aspnetcore
 
 ## Using the client
 Using the client is straightforward - create an instance, call the up- & download functions:

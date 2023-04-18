@@ -29,38 +29,31 @@ public class FileTransferServiceTestImplementation : AbstractFileTransferService
         });
     }
 
-    protected override bool PreUploadHook(string fileID, out string filePath, out string message)
+    protected override Task<PreHookResponse> PreUploadHook(string fileID)
     {
         if (_tokenHandler.UploadTokenDictionary.ContainsKey(fileID))
         {
-            message = string.Empty;
-            filePath = _tokenHandler.UploadTokenDictionary[fileID];
-            return true;
+            var filePath = _tokenHandler.UploadTokenDictionary[fileID];
+            return Task.FromResult(new PreHookResponse(true, filePath, string.Empty));
         }
 
-        filePath = string.Empty;
-        message = $"No file found for fileID {fileID}";
-        return false;
+        return Task.FromResult(new PreHookResponse(false, string.Empty, $"No file found for fileID {fileID}"));
     }
 
-    protected override bool PreDownloadHook(string fileID, out string filePath, out string message)
+    protected override Task<PreHookResponse> PreDownloadHook(string fileID)
     {
         if (_tokenHandler.DownloadTokenDictionary.ContainsKey(fileID))
         {
-            message = string.Empty;
-            filePath = _tokenHandler.DownloadTokenDictionary[fileID];
-            return true;
+            var filePath = _tokenHandler.DownloadTokenDictionary[fileID];
+            return Task.FromResult(new PreHookResponse(true, filePath, string.Empty));
         }
 
-        filePath = string.Empty;
-        message = $"No file found for fileID {fileID}";
-        return false;
+        return Task.FromResult(new PreHookResponse(false, string.Empty, $"No file found for fileID {fileID}"));
     }
 
-    protected override bool ValidateHeaders(Metadata headers, out string message)
+    protected override Task<ValidationResult> ValidateHeaders(Metadata headers)
     {
-        message = string.Empty;
-        return true;
+        return Task.FromResult(new ValidationResult(true, string.Empty));
     }
 
     private readonly TransactionTokenHandler _tokenHandler;

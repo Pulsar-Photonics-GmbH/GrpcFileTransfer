@@ -101,7 +101,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
             var responseDownload = _grpcClient.Download(new FileDownloadRequest
             {
                 GetMd5Hash = true,
-                FileID = sourceDownloadToken
+                FileId = sourceDownloadToken
             });
 
             var responseStream = responseDownload.ResponseStream;
@@ -190,7 +190,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     public async void TestBadUploadToken()
     {
         var ftc = new FileTransferClient(Channel, _logger);
-        Func<Task> act = async () => { await ftc.Download("abc", sourceFile).ConfigureAwait(false); };
+        Func<Task> act = async () => { await ftc.Upload("abc", sourceFile).ConfigureAwait(false); };
         await act.Should().ThrowAsync<RpcException>().Where(e => e.Status.StatusCode == StatusCode.FailedPrecondition);
     }
 
