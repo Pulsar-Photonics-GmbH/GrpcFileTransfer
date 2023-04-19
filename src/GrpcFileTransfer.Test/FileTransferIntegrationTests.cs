@@ -101,14 +101,6 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         await act.Should().ThrowAsync<RpcException>().Where(e => e.Status.StatusCode == StatusCode.FailedPrecondition);
     }
 
-    [Fact(Skip = "")]
-    public async void TestBadUploadToken()
-    {
-        var ftc = new FileTransferClient(Channel, _logger);
-        Func<Task> act = async () => { await ftc.Upload("abc", sourceFile).ConfigureAwait(false); };
-        await act.Should().ThrowAsync<RpcException>().Where(e => e.Status.StatusCode == StatusCode.FailedPrecondition);
-    }
-
     public new void Dispose()
     {
         File.Delete(sourceFile);
