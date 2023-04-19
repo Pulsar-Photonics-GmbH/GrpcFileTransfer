@@ -12,6 +12,7 @@ jobs:
       run:
         working-directory: ./src
     steps:
+    - uses: AutoModality/action-clean@v1
     - uses: actions/checkout@v3
 
     - name: Setup .NET
@@ -39,6 +40,7 @@ jobs:
         working-directory: ./src
         
     steps:
+    - uses: AutoModality/action-clean@v1
     - uses: actions/checkout@v3
     
     - name: Setup .NET
