@@ -1,4 +1,3 @@
-﻿using System.IO.Compression;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -125,7 +124,6 @@ public class FileTransferClient
         if (headerFields != null)
             foreach (var headerField in headerFields)
                 headers.Add(headerField);
-        headers.Add("grpc-internal-encoding-request", "gzip");
 
         _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
