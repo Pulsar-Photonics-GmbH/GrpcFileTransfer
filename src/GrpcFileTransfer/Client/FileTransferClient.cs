@@ -139,7 +139,7 @@ public class FileTransferClient
         await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
         var chunk = new FileChunk();
-        for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+        while (!chunk.IsLast)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
