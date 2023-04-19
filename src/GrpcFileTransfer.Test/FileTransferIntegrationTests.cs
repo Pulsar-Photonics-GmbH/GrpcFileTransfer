@@ -163,6 +163,25 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     }
 
     [Fact]
+    public async Task TestClientUploadWithCompressionHeader()
+    {
+        var uploadedFile = Path.GetTempFileName();
+        var uploadToken = Guid.NewGuid().ToString();
+        _tokenHandler.AddUploadToken(uploadToken, uploadedFile);
+        try
+        {
+            var ftc = new FileTransferClient(Channel, _logger);
+            await ftc.Upload(uploadToken, sourceFile, true, new List<Metadata.Entry> { new("grpc-internal-encoding-request", "gzip") }).ConfigureAwait(false);
+            Utils.CalculateMD5(uploadedFile).Should().Be(sourceHash);
+        }
+        finally
+        {
+            File.Delete(uploadedFile);
+        }
+    }
+
+
+    [Fact]
     public async Task TestClientDownload()
     {
         var downloadedFile = Path.GetTempFileName();
