@@ -125,16 +125,19 @@ public class FileTransferClient
             foreach (var headerField in headerFields)
                 headers.Add(headerField);
 
+        if (!File.Exists(localFilepath))
+            throw new FileNotFoundException("Could not find file for upload", localFilepath);
+
         _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
+
+        var asyncCall = _grpcClient.Upload(headers);
+        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
         await using FileStream fileStream = File.OpenRead(localFilepath);
         _logger?.LogTrace("Opened read filestream for {}", localFilepath);
 
         int chunkSizeBytes = Utils.ChunkSize;
         byte[] buffer = new byte[chunkSizeBytes];
-
-        var asyncCall = _grpcClient.Upload(headers);
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
         var chunk = new FileChunk();
         for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
@@ -149,7 +152,7 @@ public class FileTransferClient
                 chunk.IsLast = true;
                 _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
             }
-
+            _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
             await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
             chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
 
