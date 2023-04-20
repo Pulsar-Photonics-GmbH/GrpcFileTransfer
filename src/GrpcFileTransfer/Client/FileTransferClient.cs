@@ -126,61 +126,78 @@ public class FileTransferClient
                 headers.Add(headerField);
 
         if (!File.Exists(localFilepath))
+        {
+            _logger?.LogError("File {LocalFilepath} to be uploaded not found, stopping upload", localFilepath);
             throw new FileNotFoundException("Could not find file for upload", localFilepath);
+        }
 
-        _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
-
-        using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
-
-        await using FileStream fileStream = File.OpenRead(localFilepath);
-        _logger?.LogTrace("Opened read filestream for {}", localFilepath);
-
-        int chunkSizeBytes = Utils.ChunkSize;
-        byte[] buffer = new byte[chunkSizeBytes];
-
-        var chunk = new FileChunk();
-        for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+        try
         {
+            _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
+
+            using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
+
+            await using FileStream fileStream = File.OpenRead(localFilepath);
+            _logger?.LogTrace("Opened read filestream for {}", localFilepath);
+
+            int chunkSizeBytes = Utils.ChunkSize;
+            byte[] buffer = new byte[chunkSizeBytes];
+
+            var chunk = new FileChunk();
+            for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                chunk.Id++;
+                if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+                {
+                    chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
+                    buffer = new byte[chunkSizeBytes];
+                    chunk.IsLast = true;
+                    _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
+                }
+
+                _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
+                await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
+                chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
+
+                await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken).ConfigureAwait(false);
+                _logger?.LogTrace("Transferred chunk {}", chunk.Id);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken).ConfigureAwait(false);
 
-            chunk.Id++;
-            if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+            await asyncCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+            var response = await asyncCall.ResponseAsync.ConfigureAwait(false);
+            if (hashVerification)
             {
-                chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
-                buffer = new byte[chunkSizeBytes];
-                chunk.IsLast = true;
-                _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
+                string hash = Utils.CalculateMD5(localFilepath);
+                _logger?.LogTrace("Calculated md5 hash {} for {}.", hash, localFilepath);
+                string serverHash = response.Md5Hash;
+                _logger?.LogTrace("Received md5 hash {} for fileId {} from server", serverHash, fileId);
+                if (serverHash != hash)
+                {
+
+                    var ex = new CorruptedFileException(localFilepath, hash, serverHash, "");
+                    _logger?.LogError(ex, "Hash comparison failed");
+                    throw ex;
+                }
             }
-            _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
-            await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
-            chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
 
-            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken).ConfigureAwait(false);
-            _logger?.LogTrace("Transferred chunk {}", chunk.Id);
+            _logger?.LogDebug("Finished upload of {} to fileId {}", localFilepath, fileId);
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken).ConfigureAwait(false);
-
-        await asyncCall.RequestStream.CompleteAsync().ConfigureAwait(false);
-        var response = await asyncCall.ResponseAsync.ConfigureAwait(false);
-        if (hashVerification)
+        catch (RpcException rEx)
         {
-            string hash = Utils.CalculateMD5(localFilepath);
-            _logger?.LogTrace("Calculated md5 hash {} for {}.", hash, localFilepath);
-            string serverHash = response.Md5Hash;
-            _logger?.LogTrace("Received md5 hash {} for fileId {} from server", serverHash, fileId);
-            if (serverHash != hash)
-            {
-
-                var ex = new CorruptedFileException(localFilepath, hash, serverHash, "");
-                _logger?.LogError(ex, "Hash comparison failed");
-                throw ex;
-            }
+            _logger?.LogError(rEx, "Upload of file {LocalFilepath} failed with gRPC exception", localFilepath);
+            throw;
         }
-
-        _logger?.LogDebug("Finished upload of {} to fileId {}", localFilepath, fileId);
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Upload of file {LocalFilepath} failed with general exception", localFilepath);
+            throw;
+        }
     }
 
     private readonly FileTransfer.FileTransferClient _grpcClient;
