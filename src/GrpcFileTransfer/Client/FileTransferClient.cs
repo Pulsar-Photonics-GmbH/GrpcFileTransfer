@@ -130,7 +130,7 @@ public class FileTransferClient
 
         _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
-        var asyncCall = _grpcClient.Upload(headers);
+        using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
         await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
         await using FileStream fileStream = File.OpenRead(localFilepath);
