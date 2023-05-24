@@ -16,16 +16,22 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     {
         _logger = fixture.LoggerFactory.CreateLogger<FileTransferIntegrationTests>();
         _tokenHandler = fixture.TokenHandler;
+
         sourceFile = Path.GetTempFileName();
 
         using (var fs = new FileStream(sourceFile, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             fs.SetLength(testFileSizeInMB * 1024 * 1024);
         }
-
         sourceHash = Utils.CalculateMD5(sourceFile);
         sourceDownloadToken = Guid.NewGuid().ToString();
+
+        emptySourceFile = Path.GetTempFileName();
+        emptySourceHash = Utils.CalculateMD5(emptySourceFile);
+        emptySourceDownloadToken = Guid.NewGuid().ToString();
+
         _tokenHandler.AddDownloadToken(sourceDownloadToken, sourceFile);
+        _tokenHandler.AddDownloadToken(emptySourceDownloadToken, emptySourceFile);
     }
 
     [Fact]
@@ -76,6 +82,24 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         }
     }
 
+    [Fact]
+    public async Task TestClientUploadEmptyFile()
+    {
+        var uploadedFile = Path.GetTempFileName();
+        var uploadToken = Guid.NewGuid().ToString();
+        _tokenHandler.AddUploadToken(uploadToken, uploadedFile);
+        try
+        {
+            var ftc = new FileTransferClient(Channel, _logger);
+            await ftc.Upload(uploadToken, emptySourceFile, true).ConfigureAwait(false);
+            Utils.CalculateMD5(uploadedFile).Should().Be(emptySourceHash);
+        }
+        finally
+        {
+            File.Delete(uploadedFile);
+        }
+    }
+
 
     [Fact]
     public async Task TestClientDownload()
@@ -86,6 +110,22 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
             var ftc = new FileTransferClient(Channel, _logger);
             await ftc.Download(sourceDownloadToken, downloadedFile, true).ConfigureAwait(false);
             Utils.CalculateMD5(downloadedFile).Should().Be(sourceHash);
+        }
+        finally
+        {
+            File.Delete(downloadedFile);
+        }
+    }
+
+    [Fact]
+    public async Task TestClientDownloadEmptyFile()
+    {
+        var downloadedFile = Path.GetTempFileName();
+        try
+        {
+            var ftc = new FileTransferClient(Channel, _logger);
+            await ftc.Download(emptySourceDownloadToken, downloadedFile, true).ConfigureAwait(false);
+            Utils.CalculateMD5(downloadedFile).Should().Be(emptySourceHash);
         }
         finally
         {
@@ -112,13 +152,17 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     public new void Dispose()
     {
         File.Delete(sourceFile);
+        File.Delete(emptySourceFile);
         base.Dispose();
     }
 
     private readonly string sourceFile;
     private readonly string sourceHash;
     private const int testFileSizeInMB = 10;
+    private readonly string emptySourceFile;
+    private readonly string emptySourceHash;
     private readonly ILogger<FileTransferIntegrationTests> _logger;
     private readonly TransactionTokenHandler _tokenHandler;
     private readonly string sourceDownloadToken;
+    private readonly string emptySourceDownloadToken;
 }

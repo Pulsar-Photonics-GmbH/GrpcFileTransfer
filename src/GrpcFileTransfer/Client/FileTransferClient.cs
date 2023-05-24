@@ -24,7 +24,8 @@ public class FileTransferClient
         _logger = logger;
     }
 
-    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient, ILogger logger) : this(grpcClient)
+    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient, ILogger logger) :
+        this(grpcClient)
     {
         _logger = logger;
     }
@@ -40,7 +41,8 @@ public class FileTransferClient
     /// <exception cref="AccessViolationException">If <see cref="localFilepath"/> is not writeable.</exception>
     /// <exception cref="CorruptedFileException">When <see cref="hashVerification"/> is set and hashes do not match.</exception>
     /// <exception cref="TransferFailedException">If the download failed for another reason.</exception>
-    public async Task Download(string fileId, string localFilepath, bool hashVerification = false, IEnumerable<Metadata.Entry>? headerFields = null, CancellationToken cancellationToken = default)
+    public async Task Download(string fileId, string localFilepath, bool hashVerification = false,
+        IEnumerable<Metadata.Entry>? headerFields = null, CancellationToken cancellationToken = default)
     {
         var headers = new Metadata();
         if (headerFields != null)
@@ -70,7 +72,8 @@ public class FileTransferClient
                     if (fileStream is not { CanWrite: true })
                         throw new AccessViolationException($"No write permission for {localFilepath}.");
 
-                    await fileStream.WriteAsync(responseStream.Current.FileChunk.Content.Memory, cancellationToken).ConfigureAwait(false);
+                    await fileStream.WriteAsync(responseStream.Current.FileChunk.Content.Memory, cancellationToken)
+                        .ConfigureAwait(false);
                     _logger?.LogTrace("Received chunk {}", responseStream.Current.FileChunk.Id);
                     if (responseStream.Current.FileChunk.IsLast)
                     {
@@ -128,7 +131,8 @@ public class FileTransferClient
     /// <param name="headerFields">Additional header fields to pass in the gRPC call.</param>
     /// <param name="cancellationToken"></param>
     /// <exception cref="TransferFailedException">If the download failed for another reason.</exception>
-    public async Task Upload(string fileId, string localFilepath, bool hashVerification = false, IEnumerable<Metadata.Entry>? headerFields = null, CancellationToken cancellationToken = default)
+    public async Task Upload(string fileId, string localFilepath, bool hashVerification = false,
+        IEnumerable<Metadata.Entry>? headerFields = null, CancellationToken cancellationToken = default)
     {
         var headers = new Metadata();
         if (headerFields != null)
@@ -146,16 +150,15 @@ public class FileTransferClient
             _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
             using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
-            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken)
+                .ConfigureAwait(false);
 
             await using FileStream fileStream = File.OpenRead(localFilepath);
             _logger?.LogTrace("Opened read filestream for {}", localFilepath);
-
             int chunkSizeBytes = Utils.ChunkSize;
             byte[] buffer = new byte[chunkSizeBytes];
-
             var chunk = new FileChunk();
-            for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+            while (!chunk.IsLast)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -169,15 +172,20 @@ public class FileTransferClient
                 }
 
                 _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
-                await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
+                await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken)
+                    .ConfigureAwait(false);
                 chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
 
-                await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken).ConfigureAwait(false);
+                await asyncCall.RequestStream
+                    .WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken)
+                    .ConfigureAwait(false);
                 _logger?.LogTrace("Transferred chunk {}", chunk.Id);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken).ConfigureAwait(false);
+            await asyncCall.RequestStream
+                .WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken)
+                .ConfigureAwait(false);
 
             await asyncCall.RequestStream.CompleteAsync().ConfigureAwait(false);
             var response = await asyncCall.ResponseAsync.ConfigureAwait(false);
@@ -189,7 +197,6 @@ public class FileTransferClient
                 _logger?.LogTrace("Received md5 hash {} for fileId {} from server", serverHash, fileId);
                 if (serverHash != hash)
                 {
-
                     var ex = new CorruptedFileException(localFilepath, hash, serverHash, "");
                     _logger?.LogError(ex, "Hash comparison failed");
                     throw ex;

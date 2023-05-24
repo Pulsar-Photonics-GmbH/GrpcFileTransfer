@@ -223,8 +223,7 @@ public abstract class AbstractFileTransferService : InternalFileTransfer.Interna
                 byte[] buffer = new byte[Utils.ChunkSize];
 
                 var chunk = new FileChunk();
-
-                for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
+                while (!chunk.IsLast)
                 {
                     if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
                     {
@@ -239,9 +238,9 @@ public abstract class AbstractFileTransferService : InternalFileTransfer.Interna
                     chunk.Id++;
 
                     await responseStream.WriteAsync(new FileDownloadResponse { FileChunk = chunk }).ConfigureAwait(false);
-                    if (chunk.IsLast)
-                        downloadSuccess = true;
                 }
+
+                downloadSuccess = true;
             }
             finally
             {
