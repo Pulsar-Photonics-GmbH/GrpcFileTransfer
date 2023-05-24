@@ -31,7 +31,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     [Fact]
     public Task ApiInformationTest()
     {
-        var _grpcClient = new FileTransfer.FileTransferClient(Channel);
+        var _grpcClient = new InternalFileTransfer.InternalFileTransferClient(Channel);
         var response = _grpcClient.GetInfo(new Google.Protobuf.WellKnownTypes.Empty());
         response.Should().NotBeNull();
         response.Name.Should().Be(FileTransferServiceTestImplementation.ServiceName);

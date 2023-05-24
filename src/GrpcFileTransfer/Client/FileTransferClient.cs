@@ -11,10 +11,20 @@ public class FileTransferClient
 {
     public FileTransferClient(GrpcChannel grpcChannel)
     {
-        _grpcClient = new FileTransfer.FileTransferClient(grpcChannel);
+        _grpcClient = new InternalFileTransfer.InternalFileTransferClient(grpcChannel);
+    }
+
+    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient)
+    {
+        _grpcClient = grpcClient;
     }
 
     public FileTransferClient(GrpcChannel grpcChannel, ILogger logger) : this(grpcChannel)
+    {
+        _logger = logger;
+    }
+
+    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient, ILogger logger) : this(grpcClient)
     {
         _logger = logger;
     }
@@ -200,6 +210,6 @@ public class FileTransferClient
         }
     }
 
-    private readonly FileTransfer.FileTransferClient _grpcClient;
+    private readonly InternalFileTransfer.InternalFileTransferClient _grpcClient;
     private readonly ILogger? _logger;
 }

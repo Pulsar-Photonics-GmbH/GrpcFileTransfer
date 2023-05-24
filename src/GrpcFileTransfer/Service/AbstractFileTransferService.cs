@@ -7,7 +7,7 @@ using Enum = System.Enum;
 
 namespace Pulsar.GrpcFileTransfer.Service;
 
-public abstract class AbstractFileTransferService : FileTransfer.FileTransferBase
+public abstract class AbstractFileTransferService : InternalFileTransfer.InternalFileTransferBase
 {
     protected AbstractFileTransferService()
     {
@@ -18,7 +18,7 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
         _logger = logger;
     }
 
-    public sealed override Task<ServiceInformation> GetInfo(Empty request, ServerCallContext context)
+    public override Task<ServiceInformation> GetInfo(Empty request, ServerCallContext context)
     {
         try
         {
@@ -41,7 +41,7 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
     /// <returns></returns>
     protected abstract Task<ServiceInformation> GetInfoImplementation(Empty request, ServerCallContext context);
 
-    public sealed override async Task<FileUploadResponse> Upload(IAsyncStreamReader<FileUploadRequest> requestStream, ServerCallContext context)
+    public override async Task<FileUploadResponse> Upload(IAsyncStreamReader<FileUploadRequest> requestStream, ServerCallContext context)
     {
         try
         {
@@ -195,7 +195,7 @@ public abstract class AbstractFileTransferService : FileTransfer.FileTransferBas
         return Task.FromResult(new PostHookResponse(uploadSuccessful, string.Empty));
     }
 
-    public sealed override async Task Download(FileDownloadRequest request, IServerStreamWriter<FileDownloadResponse> responseStream, ServerCallContext context)
+    public override async Task Download(FileDownloadRequest request, IServerStreamWriter<FileDownloadResponse> responseStream, ServerCallContext context)
     {
         try
         {
