@@ -5,7 +5,7 @@ import "google/protobuf/empty.proto";
 
 package file_transfer;
 
-service FileTransfer {
+service InternalFileTransfer {
   rpc Upload(stream FileUploadRequest) returns(FileUploadResponse);
   rpc Download(FileDownloadRequest) returns(stream FileDownloadResponse);
   rpc GetInfo (google.protobuf.Empty) returns (ServiceInformation);
