@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -12,10 +11,20 @@ public class FileTransferClient
 {
     public FileTransferClient(GrpcChannel grpcChannel)
     {
-        _grpcClient = new FileTransfer.FileTransferClient(grpcChannel);
+        _grpcClient = new InternalFileTransfer.InternalFileTransferClient(grpcChannel);
+    }
+
+    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient)
+    {
+        _grpcClient = grpcClient;
     }
 
     public FileTransferClient(GrpcChannel grpcChannel, ILogger logger) : this(grpcChannel)
+    {
+        _logger = logger;
+    }
+
+    public FileTransferClient(InternalFileTransfer.InternalFileTransferClient grpcClient, ILogger logger) : this(grpcClient)
     {
         _logger = logger;
     }
@@ -136,55 +145,57 @@ public class FileTransferClient
         {
             _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
-        await using FileStream fileStream = File.OpenRead(localFilepath);
-        _logger?.LogTrace("Opened read filestream for {}", localFilepath);
+            using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
-        int chunkSizeBytes = Utils.ChunkSize;
-        byte[] buffer = new byte[chunkSizeBytes];
-
-        var asyncCall = _grpcClient.Upload(headers);
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
+            await using FileStream fileStream = File.OpenRead(localFilepath);
+            _logger?.LogTrace("Opened read filestream for {}", localFilepath);
 
         var chunk = new FileChunk();
         while (!chunk.IsLast)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            chunk.Id++;
-            if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+            var chunk = new FileChunk();
+            for (long i = 0; i < fileStream.Length; i += chunkSizeBytes)
             {
-                chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
-                buffer = new byte[chunkSizeBytes];
-                chunk.IsLast = true;
-                _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                chunk.Id++;
+                if (fileStream.Position + chunkSizeBytes >= fileStream.Length)
+                {
+                    chunkSizeBytes = (int)(fileStream.Length - fileStream.Position);
+                    buffer = new byte[chunkSizeBytes];
+                    chunk.IsLast = true;
+                    _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
+                }
+
+                _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
+                await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
+                chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
+
+                await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken).ConfigureAwait(false);
+                _logger?.LogTrace("Transferred chunk {}", chunk.Id);
             }
 
-            await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
-            chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
+            cancellationToken.ThrowIfCancellationRequested();
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken).ConfigureAwait(false);
 
-            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileChunk = chunk }, cancellationToken).ConfigureAwait(false);
-            _logger?.LogTrace("Transferred chunk {}", chunk.Id);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { GetMd5Hash = hashVerification }, cancellationToken).ConfigureAwait(false);
-
-        await asyncCall.RequestStream.CompleteAsync().ConfigureAwait(false);
-        var response = await asyncCall.ResponseAsync.ConfigureAwait(false);
-        if (hashVerification)
-        {
-            string hash = Utils.CalculateMD5(localFilepath);
-            _logger?.LogTrace("Calculated md5 hash {} for {}.", hash, localFilepath);
-            string serverHash = response.Md5Hash;
-            _logger?.LogTrace("Received md5 hash {} for fileId {} from server", serverHash, fileId);
-            if (serverHash != hash)
+            await asyncCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+            var response = await asyncCall.ResponseAsync.ConfigureAwait(false);
+            if (hashVerification)
             {
+                string hash = Utils.CalculateMD5(localFilepath);
+                _logger?.LogTrace("Calculated md5 hash {} for {}.", hash, localFilepath);
+                string serverHash = response.Md5Hash;
+                _logger?.LogTrace("Received md5 hash {} for fileId {} from server", serverHash, fileId);
+                if (serverHash != hash)
+                {
 
-                var ex = new CorruptedFileException(localFilepath, hash, serverHash, "");
-                _logger?.LogError(ex, "Hash comparison failed");
-                throw ex;
+                    var ex = new CorruptedFileException(localFilepath, hash, serverHash, "");
+                    _logger?.LogError(ex, "Hash comparison failed");
+                    throw ex;
+                }
             }
-        }
 
             _logger?.LogDebug("Finished upload of {} to fileId {}", localFilepath, fileId);
         }
@@ -200,6 +211,6 @@ public class FileTransferClient
         }
     }
 
-    private readonly FileTransfer.FileTransferClient _grpcClient;
+    private readonly InternalFileTransfer.InternalFileTransferClient _grpcClient;
     private readonly ILogger? _logger;
 }

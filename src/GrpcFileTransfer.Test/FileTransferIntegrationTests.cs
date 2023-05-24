@@ -37,7 +37,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     [Fact]
     public Task ApiInformationTest()
     {
-        var _grpcClient = new FileTransfer.FileTransferClient(Channel);
+        var _grpcClient = new InternalFileTransfer.InternalFileTransferClient(Channel);
         var response = _grpcClient.GetInfo(new Google.Protobuf.WellKnownTypes.Empty());
         response.Should().NotBeNull();
         response.Name.Should().Be(FileTransferServiceTestImplementation.ServiceName);
@@ -65,7 +65,6 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     }
 
     [Fact]
-    public async Task TestClientUploadWithCompressionHeader()
     {
         var uploadedFile = Path.GetTempFileName();
         var uploadToken = Guid.NewGuid().ToString();
@@ -90,7 +89,6 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         _tokenHandler.AddUploadToken(uploadToken, uploadedFile);
         try
         {
-            var ftc = new FileTransferClient(Channel, _logger);
             await ftc.Upload(uploadToken, emptySourceFile, true).ConfigureAwait(false);
             Utils.CalculateMD5(uploadedFile).Should().Be(emptySourceHash);
         }
@@ -99,6 +97,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
             File.Delete(uploadedFile);
         }
     }
+
 
     [Fact]
     public async Task TestClientDownload()
