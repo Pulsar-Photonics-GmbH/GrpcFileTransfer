@@ -16,7 +16,9 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     {
         _logger = fixture.LoggerFactory.CreateLogger<FileTransferIntegrationTests>();
         _tokenHandler = fixture.TokenHandler;
+
         sourceFile = Path.GetTempFileName();
+
         using (var fs = new FileStream(sourceFile, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             fs.SetLength(testFileSizeInMB * 1024 * 1024);

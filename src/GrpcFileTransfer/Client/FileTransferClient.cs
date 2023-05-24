@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -135,14 +136,14 @@ public class FileTransferClient
         {
             _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
-            using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
-            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
+        await using FileStream fileStream = File.OpenRead(localFilepath);
+        _logger?.LogTrace("Opened read filestream for {}", localFilepath);
 
-            await using FileStream fileStream = File.OpenRead(localFilepath);
-            _logger?.LogTrace("Opened read filestream for {}", localFilepath);
+        int chunkSizeBytes = Utils.ChunkSize;
+        byte[] buffer = new byte[chunkSizeBytes];
 
-            int chunkSizeBytes = Utils.ChunkSize;
-            byte[] buffer = new byte[chunkSizeBytes];
+        var asyncCall = _grpcClient.Upload(headers);
+        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
         var chunk = new FileChunk();
         while (!chunk.IsLast)
@@ -157,7 +158,7 @@ public class FileTransferClient
                 chunk.IsLast = true;
                 _logger?.LogTrace("Chunk {} is marked as last chunk", chunk.Id);
             }
-            _logger?.LogTrace("Reading chunk {ChunkId}", chunk.Id);
+
             await fileStream.ReadExactlyAsync(buffer, 0, chunkSizeBytes, cancellationToken).ConfigureAwait(false);
             chunk.Content = UnsafeByteOperations.UnsafeWrap(buffer);
 
