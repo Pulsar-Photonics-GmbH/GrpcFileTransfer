@@ -126,18 +126,23 @@ public class FileTransferClient
                 headers.Add(headerField);
 
         if (!File.Exists(localFilepath))
+        {
+            _logger?.LogError("File {LocalFilepath} to be uploaded not found, stopping upload", localFilepath);
             throw new FileNotFoundException("Could not find file for upload", localFilepath);
+        }
 
-        _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
+        try
+        {
+            _logger?.LogDebug("Starting upload of {} to fileId {}", localFilepath, fileId);
 
-        var asyncCall = _grpcClient.Upload(headers);
-        await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
+            using var asyncCall = _grpcClient.Upload(headers, cancellationToken: cancellationToken);
+            await asyncCall.RequestStream.WriteAsync(new FileUploadRequest { FileId = fileId }, cancellationToken).ConfigureAwait(false);
 
-        await using FileStream fileStream = File.OpenRead(localFilepath);
-        _logger?.LogTrace("Opened read filestream for {}", localFilepath);
+            await using FileStream fileStream = File.OpenRead(localFilepath);
+            _logger?.LogTrace("Opened read filestream for {}", localFilepath);
 
-        int chunkSizeBytes = Utils.ChunkSize;
-        byte[] buffer = new byte[chunkSizeBytes];
+            int chunkSizeBytes = Utils.ChunkSize;
+            byte[] buffer = new byte[chunkSizeBytes];
 
         var chunk = new FileChunk();
         while (!chunk.IsLast)
@@ -180,7 +185,18 @@ public class FileTransferClient
             }
         }
 
-        _logger?.LogDebug("Finished upload of {} to fileId {}", localFilepath, fileId);
+            _logger?.LogDebug("Finished upload of {} to fileId {}", localFilepath, fileId);
+        }
+        catch (RpcException rEx)
+        {
+            _logger?.LogError(rEx, "Upload of file {LocalFilepath} failed with gRPC exception", localFilepath);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Upload of file {LocalFilepath} failed with general exception", localFilepath);
+            throw;
+        }
     }
 
     private readonly FileTransfer.FileTransferClient _grpcClient;
