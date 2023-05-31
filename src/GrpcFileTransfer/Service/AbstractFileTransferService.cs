@@ -7,7 +7,7 @@ using Enum = System.Enum;
 
 namespace Pulsar.GrpcFileTransfer.Service;
 
-public abstract class AbstractFileTransferService : InternalFileTransfer.InternalFileTransferBase
+public abstract class AbstractFileTransferService : FileTransfer.FileTransferBase
 {
     protected AbstractFileTransferService()
     {
