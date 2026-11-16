@@ -18,7 +18,6 @@
 
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
 
 namespace Pulsar.GrpcFileTransfer.Test.Helpers;
 
@@ -26,13 +25,13 @@ internal class GrpcTestContext<TStartup> : IDisposable where TStartup : class
 {
     private readonly Stopwatch _stopwatch;
     private readonly GrpcTestFixture<TStartup> _fixture;
-    private readonly ITestOutputHelper _outputHelper;
+    private readonly TestContext _testContext;
 
-    public GrpcTestContext(GrpcTestFixture<TStartup> fixture, ITestOutputHelper outputHelper)
+    public GrpcTestContext(GrpcTestFixture<TStartup> fixture, TestContext testContext)
     {
         _stopwatch = Stopwatch.StartNew();
         _fixture = fixture;
-        _outputHelper = outputHelper;
+        _testContext = testContext;
         _fixture.LoggedMessage += WriteMessage;
     }
 
@@ -43,7 +42,7 @@ internal class GrpcTestContext<TStartup> : IDisposable where TStartup : class
         {
             log += Environment.NewLine + exception;
         }
-        _outputHelper.WriteLine(log);
+        _testContext.WriteLine(log);
     }
 
     public void Dispose()
