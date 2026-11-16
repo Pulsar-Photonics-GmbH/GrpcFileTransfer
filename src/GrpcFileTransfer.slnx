@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GrpcFileTransfer.Test/GrpcFileTransfer.Test.csproj" />
+  <Project Path="GrpcFileTransfer/GrpcFileTransfer.csproj" />
+</Solution>

@@ -6,7 +6,11 @@
 version: 2
 updates:
   - package-ecosystem: "nuget" # See documentation for possible values
-    directory: "/src" # Location of package manifests
+    # Listed per project directory: Dependabot reads the projects of a .sln, but not of
+    # the .slnx solution format used here.
+    directories:
+      - "/src/GrpcFileTransfer"
+      - "/src/GrpcFileTransfer.Test"
     schedule:
       interval: "weekly"
   - package-ecosystem: "github-actions"
