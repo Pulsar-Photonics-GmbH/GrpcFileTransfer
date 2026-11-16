@@ -26,10 +26,10 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-    # Microsoft.Testing.Platform mode (test.runner in global.json): the solution is passed
-    # with --solution, and the results are written as a TRX report.
+    # Microsoft.Testing.Platform mode (test.runner in global.json) finds the solution in
+    # the working directory and writes the results as a TRX report.
     - name: Test
-      run: dotnet test --solution GrpcFileTransfer.sln --no-build --report-trx --results-directory TestResults
+      run: dotnet test --no-build --report-trx --results-directory TestResults
 
     - name: Upload test results
       if: always()
