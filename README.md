@@ -3,6 +3,8 @@
 # File transfer via gRPC in .NET
 GrpcFileTransfer is a .NET library to transfer files between machines using protobuf & gRPC.
 
+The package targets .NET 10 and runs on .NET 10 or later. Version 3.x is the last one for .NET 8.
+
 ## Getting started
 To use this library, follow this three main steps:
 - Install in your project from nuget [![nuget](https://img.shields.io/nuget/v/Pulsar.GrpcFileTransfer.svg?label=nuget)](https://www.nuget.org/packages/Pulsar.GrpcFileTransfer)
