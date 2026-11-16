@@ -5,16 +5,24 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Pulsar.GrpcFileTransfer.Test.Helpers;
-using Xunit.Abstractions;
 
 namespace Pulsar.GrpcFileTransfer.Test;
 
-public class IntegrationTestBase : IClassFixture<GrpcTestFixture<Startup>>, IDisposable
+public abstract class IntegrationTestBase : IDisposable
 {
     private GrpcChannel? _channel;
-    private readonly IDisposable? _testContext;
+    private readonly IDisposable _logForwarding;
 
-    protected GrpcTestFixture<Startup> Fixture { get; set; }
+    protected IntegrationTestBase(TestContext testContext)
+    {
+        TestContext = testContext;
+        _logForwarding = Fixture.GetTestContext(testContext);
+    }
+
+    /// <summary>The running test's context: its output and cancellation token.</summary>
+    protected TestContext TestContext { get; }
+
+    protected static GrpcTestFixture<Startup> Fixture => SharedGrpcServer.Fixture;
 
     protected ILoggerFactory LoggerFactory => Fixture.LoggerFactory;
 
@@ -29,17 +37,12 @@ public class IntegrationTestBase : IClassFixture<GrpcTestFixture<Startup>>, IDis
         });
     }
 
-    public IntegrationTestBase(GrpcTestFixture<Startup> fixture, ITestOutputHelper outputHelper)
+    public virtual void Dispose()
     {
-        Fixture = fixture;
-        _testContext = Fixture.GetTestContext(outputHelper);
-    }
-
-    public void Dispose()
-    {
-        _testContext?.Dispose();
-        Channel.Dispose();
+        _logForwarding.Dispose();
+        _channel?.Dispose();
         _channel = null;
+        GC.SuppressFinalize(this);
     }
 }
 

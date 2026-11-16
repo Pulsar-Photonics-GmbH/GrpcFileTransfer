@@ -21,7 +21,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
 
 namespace Pulsar.GrpcFileTransfer.Test.Helpers;
 
@@ -97,8 +96,8 @@ public class GrpcTestFixture<TStartup> : IDisposable where TStartup : class
         _server?.Dispose();
     }
 
-    public IDisposable GetTestContext(ITestOutputHelper outputHelper)
+    public IDisposable GetTestContext(TestContext testContext)
     {
-        return new GrpcTestContext<TStartup>(this, outputHelper);
+        return new GrpcTestContext<TStartup>(this, testContext);
     }
 }
