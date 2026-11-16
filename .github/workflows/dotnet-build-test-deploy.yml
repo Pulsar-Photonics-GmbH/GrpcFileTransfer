@@ -45,6 +45,11 @@ jobs:
     needs: [build_and_test]
     if: startsWith(github.ref, 'refs/tags/v') # make sure deploy only runs on tags with version number
     runs-on: windows-latest
+    # NuGet trusted publishing: the job's GitHub OIDC token is exchanged for a short-lived
+    # nuget.org API key (policy on nuget.org: Pulsar-Photonics, this repo and workflow file).
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: ./src
@@ -74,7 +79,14 @@ jobs:
         mkdir nupkg
         dotnet pack -p:PackageVersion=$env:RELEASE_VERSION -o  $PWD\nupkg -p:RepositoryCommit=$env:GITHUB_SHA --configuration Release -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     
+    # The key is valid for one hour, so it is requested right before the push.
+    - name: NuGet login (OIDC to temporary API key)
+      uses: NuGet/login@v1
+      id: nuget_login
+      with:
+        user: ax_meyer
+
     - name: Publish nuget
       run: |
         cd nupkg
-        dotnet nuget push "**/*.nupkg" --api-key ${{secrets.NUGET_DEPLOY_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        dotnet nuget push "**/*.nupkg" --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
