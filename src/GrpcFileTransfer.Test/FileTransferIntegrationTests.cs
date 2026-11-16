@@ -55,7 +55,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         try
         {
             var ftc = new FileTransferClient(Channel, _logger);
-            await ftc.Upload(uploadToken, sourceFile, true).ConfigureAwait(false);
+            await ftc.Upload(uploadToken, sourceFile, true);
             Utils.CalculateMD5(uploadedFile).Should().Be(sourceHash);
         }
         finally
@@ -73,7 +73,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         try
         {
             var ftc = new FileTransferClient(Channel, _logger);
-            await ftc.Upload(uploadToken, sourceFile, true, new List<Metadata.Entry> { new("grpc-internal-encoding-request", "gzip") }).ConfigureAwait(false);
+            await ftc.Upload(uploadToken, sourceFile, true, new List<Metadata.Entry> { new("grpc-internal-encoding-request", "gzip") });
             Utils.CalculateMD5(uploadedFile).Should().Be(sourceHash);
         }
         finally
@@ -91,7 +91,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         try
         {
             var ftc = new FileTransferClient(Channel, _logger);
-            await ftc.Upload(uploadToken, emptySourceFile, true).ConfigureAwait(false);
+            await ftc.Upload(uploadToken, emptySourceFile, true);
             Utils.CalculateMD5(uploadedFile).Should().Be(emptySourceHash);
         }
         finally
@@ -108,7 +108,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         try
         {
             var ftc = new FileTransferClient(Channel, _logger);
-            await ftc.Download(sourceDownloadToken, downloadedFile, true).ConfigureAwait(false);
+            await ftc.Download(sourceDownloadToken, downloadedFile, true);
             Utils.CalculateMD5(downloadedFile).Should().Be(sourceHash);
         }
         finally
@@ -124,7 +124,7 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
         try
         {
             var ftc = new FileTransferClient(Channel, _logger);
-            await ftc.Download(emptySourceDownloadToken, downloadedFile, true).ConfigureAwait(false);
+            await ftc.Download(emptySourceDownloadToken, downloadedFile, true);
             Utils.CalculateMD5(downloadedFile).Should().Be(emptySourceHash);
         }
         finally
@@ -134,18 +134,18 @@ public class FileTransferIntegrationTests : IntegrationTestBase, IDisposable
     }
 
     [Fact]
-    public async void TestBadDownloadToken()
+    public async Task TestBadDownloadToken()
     {
         var ftc = new FileTransferClient(Channel, _logger);
-        Func<Task> act = async () => { await ftc.Download("abc", "def").ConfigureAwait(false); };
+        Func<Task> act = async () => { await ftc.Download("abc", "def"); };
         await act.Should().ThrowAsync<RpcException>().Where(e => e.Status.StatusCode == StatusCode.FailedPrecondition);
     }
 
     [Fact]
-    public async void TestBadUploadToken()
+    public async Task TestBadUploadToken()
     {
         var ftc = new FileTransferClient(Channel, _logger);
-        Func<Task> act = async () => { await ftc.Upload("abc", sourceFile).ConfigureAwait(false); };
+        Func<Task> act = async () => { await ftc.Upload("abc", sourceFile); };
         await act.Should().ThrowAsync<RpcException>(); //.Where(e => e.Status.StatusCode == StatusCode.FailedPrecondition);
     }
 
